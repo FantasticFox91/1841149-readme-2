@@ -1,0 +1,36 @@
+services:
+  readme.user.mongo:
+    image: mongo:4.4
+    restart: always
+    container_name: readme.user.mongo
+    env_file:
+      - .readme.user.mongo.env
+    volumes:
+      - readme.mongo.user:/data/db
+    networks:
+      - readme.user.network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/readme-user --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  readme.user:
+    container_name: readme.user
+    depends_on:
+      - readme.user.mongo
+    restart: always
+    image: readme.user:latest
+    env_file:
+      - .readme.user.env
+    ports:
+      - 3333:3333
+    networks:
+      - readme.user.network
+
+networks:
+  readme.user.network:
+    driver: bridge
+
+volumes:
+  readme.mongo.user:

@@ -1,0 +1,40 @@
+services:
+  postgres:
+    container_name: readme.post.db
+    restart: "always"
+    volumes:
+      - readme.post.postgres.volume:/var/lib/postgresql/data
+    env_file:
+      - .readme.post.postgres.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - readme.post.network
+
+  application:
+    image: readme.post:latest
+    depends_on:
+      - postgres
+    container_name: readme.post.app
+    restart: "always"
+    ports:
+      - 3002:3002
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ./.readme.post.env
+    networks:
+      - readme.post.network
+      - readme-shared-network
+
+networks:
+  readme.post.network:
+    driver: bridge
+  readme-shared-network:
+    external: true
+
+volumes:
+  readme.post.postgres.volume: {}

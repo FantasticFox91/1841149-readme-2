@@ -1,0 +1,40 @@
+services:
+  mongodb:
+    container_name: readme.users.db
+    restart: "always"
+    volumes:
+      - readme.users.mongo.volume:/data/db
+    env_file:
+      - .readme.user.mongo.env
+    healthcheck:
+      test: echo 'dn.runCommand("ping").ok' | mongosh mongodb:27017/readme.users.mongo
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - readme.users.network
+
+  application:
+    image: readme.user:latest
+    depends_on:
+      - mongodb
+    container_name: readme.users.app
+    restart: "always"
+    ports:
+      - 3001:3001
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ./.readme.user.env
+    networks:
+      - readme.users.network
+      - readme-shared-network
+
+networks:
+  readme.users.network:
+    driver: bridge
+  readme-shared-network:
+    external: true
+
+volumes:
+  readme.users.mongo.volume: {}

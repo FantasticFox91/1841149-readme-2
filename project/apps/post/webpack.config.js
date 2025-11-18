@@ -16,5 +16,18 @@ module.exports = {
       outputHashing: 'none',
       generatePackageJson: true,
     }),
+     {
+      apply(compiler) {
+        compiler.options.externals = ({ request }, callback) => {
+          if (request && request.startsWith('@project/')) {
+            return callback();
+          }
+          if (request && /^[a-z@][a-z0-9.\/\-_@]*$/i.test(request)) {
+            return callback(null, `commonjs ${request}`);
+          }
+          callback();
+        };
+      },
+    },
   ],
 };

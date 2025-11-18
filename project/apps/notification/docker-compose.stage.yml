@@ -1,0 +1,61 @@
+services:
+  mongodb:
+    container_name: readme.notification.db
+    restart: "always"
+    volumes:
+      - readme.notification.mongo.volume:/data/db
+    env_file:
+      - .readme.notification.mongo.env
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh mongodb:27017/readme-notification --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - readme.notification.network
+
+  rabbitmq:
+    container_name: readme.notification.rabbitmq
+    restart: "always"
+    env_file:
+      - .readme.notification.rabbitmq.env
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - readme.notification.rabbitmq.volume:/var/lib/rabbitmq
+    networks:
+      - readme.notification.network
+
+  fakesmtp:
+    container_name: readme.notification.fakesmtp
+    restart: "always"
+    networks:
+      - readme.notification.network
+
+  application:
+    image: readme.notification:latest
+    depends_on:
+      - mongodb
+      - rabbitmq
+      - fakesmtp
+    container_name: readme.notification.app
+    restart: "always"
+    ports:
+      - 3004:3004
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ./.readme.notification.env
+    networks:
+      - readme.notification.network
+
+networks:
+  readme.notification.network:
+    driver: bridge
+
+volumes:
+  readme.notification.mongo.volume: {}
+  readme.notification.rabbitmq.volume: {}

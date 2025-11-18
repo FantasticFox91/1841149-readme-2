@@ -1,0 +1,60 @@
+{
+  "name": "file-storage",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/file-storage/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/webpack:webpack",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "target": "node",
+        "compiler": "tsc",
+        "outputPath": "dist/apps/file-storage",
+        "main": "apps/file-storage/src/main.ts",
+        "tsConfig": "apps/file-storage/tsconfig.app.json",
+        "assets": ["apps/file-storage/src/assets"],
+        "isolatedConfig": true,
+        "webpackConfig": "apps/file-storage/webpack.config.js",
+        "generatePackageJson": true
+      },
+      "configurations": {
+        "development": {},
+        "production": {}
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "file-storage:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "file-storage:build:development"
+        },
+        "production": {
+          "buildTarget": "file-storage:build:production"
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/file-storage/**/*.ts"]
+      }
+    },
+    "buildImage": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "npx nx run file-storage:build",
+          "docker build --file ./apps/file-storage/Dockerfile --tag readme.file-storage ."
+        ]
+      }
+    }
+  },
+  "tags": []
+}

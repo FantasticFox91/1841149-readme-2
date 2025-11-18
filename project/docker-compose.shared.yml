@@ -1,0 +1,37 @@
+# Shared infrastructure services used by multiple microservices
+# This file contains RabbitMQ which is required by User, Post, and Notification services
+#
+# Usage:
+# Development: docker compose -f docker-compose.shared.yml up -d
+# With specific service: docker compose -f docker-compose.shared.yml -f apps/user/docker-compose.yml -f apps/user/docker-compose.dev.yml up -d
+
+version: "3.9"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.11-management-alpine
+    container_name: readme.rabbitmq
+    restart: "no"
+    ports:
+      - "5672:5672"    # AMQP protocol port
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: test
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - readme-shared-network
+
+networks:
+  readme-shared-network:
+    driver: bridge
+    name: readme-shared-network
+
+volumes:
+  rabbitmq_data:

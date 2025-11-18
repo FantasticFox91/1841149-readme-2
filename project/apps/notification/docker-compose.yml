@@ -1,0 +1,9 @@
+services:
+  mongodb:
+    image: mongo:7
+
+  rabbitmq:
+    image: rabbitmq:3.11-management-alpine
+
+  fakesmtp:
+    image: gessnerfl/fake-smtp-server:2.2.0

@@ -1,0 +1,43 @@
+services:
+  mongodb:
+    container_name: readme.file-storage.db
+    restart: "always"
+    volumes:
+      - readme.file-storage.mongo.volume:/data/db
+    env_file:
+      - .readme.file-storage.mongo.env
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh mongodb:27017/readme-file-storage --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - readme.file-storage.network
+
+  application:
+    image: readme.file-storage:latest
+    depends_on:
+      - mongodb
+    container_name: readme.file-storage.app
+    restart: "always"
+    ports:
+      - 3003:3003
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ./.readme.file-storage.env
+    volumes:
+      - file_uploads:/opt/uploads
+    networks:
+      - readme.file-storage.network
+      - readme-shared-network
+
+networks:
+  readme.file-storage.network:
+    driver: bridge
+  readme-shared-network:
+    external: true
+
+volumes:
+  readme.file-storage.mongo.volume: {}
+  file_uploads: {}

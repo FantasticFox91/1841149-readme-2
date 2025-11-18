@@ -1,0 +1,16 @@
+services:
+  application:
+    container_name: readme.api-gateway
+    restart: "always"
+    ports:
+      - 3000:3000
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ./.readme.api-gateway.env
+    networks:
+      - readme-shared-network
+
+networks:
+  readme-shared-network:
+    external: true

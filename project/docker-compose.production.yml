@@ -1,0 +1,297 @@
+version: "3.9"
+
+# Production deployment for VDS
+# Usage: docker compose -f docker-compose.production.yml up -d
+
+services:
+  # ============================================
+  # SHARED INFRASTRUCTURE
+  # ============================================
+
+  rabbitmq:
+    image: rabbitmq:3.11-management-alpine
+    container_name: readme.rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD:-test}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - readme-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Only expose management UI if needed (remove in production)
+    # ports:
+    #   - "15672:15672"
+
+  fakesmtp:
+    image: gessnerfl/fake-smtp-server:2.2.0
+    container_name: readme.fakesmtp
+    restart: always
+    networks:
+      - readme-network
+    # Expose only for debugging
+    # ports:
+    #   - "8025:8025"
+
+  # ============================================
+  # DATABASES
+  # ============================================
+
+  mongo-user:
+    image: mongo:7
+    container_name: readme.user.db
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-test}
+      MONGO_INITDB_DATABASE: readme-user
+    volumes:
+      - mongo_user_data:/data/db
+    networks:
+      - readme-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  mongo-notification:
+    image: mongo:7
+    container_name: readme.notification.db
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-test}
+      MONGO_INITDB_DATABASE: readme-notification
+    volumes:
+      - mongo_notification_data:/data/db
+    networks:
+      - readme-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  mongo-file-storage:
+    image: mongo:7
+    container_name: readme.file-storage.db
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-test}
+      MONGO_INITDB_DATABASE: readme-file-storage
+    volumes:
+      - mongo_file_storage_data:/data/db
+    networks:
+      - readme-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  postgres-post:
+    image: postgres:14-alpine
+    container_name: readme.post.db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-test}
+      POSTGRES_DB: readme_blog
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - readme-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin}"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # ============================================
+  # MICROSERVICES
+  # ============================================
+
+  user-service:
+    image: readme.user:latest
+    container_name: readme.user.app
+    restart: always
+    depends_on:
+      mongo-user:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      MONGO_HOST: mongo-user
+      MONGO_PORT: 27017
+      MONGO_DB: readme-user
+      MONGO_USER: ${MONGO_USER:-admin}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:-test}
+      MONGO_AUTH_BASE: admin
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_USER: ${RABBIT_USER:-admin}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD:-test}
+      RABBIT_QUEUE: readme.notification.income
+      RABBIT_EXCHANGE: readme.notification
+      JWT_ACCESS_TOKEN_SECRET: ${JWT_ACCESS_SECRET:-change-me-in-production}
+      JWT_REFRESH_TOKEN_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
+      JWT_ACCESS_TOKEN_EXPIRES_IN: 1d
+      JWT_REFRESH_TOKEN_EXPIRES_IN: 30d
+    networks:
+      - readme-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  post-service:
+    image: readme.post:latest
+    container_name: readme.post.app
+    restart: always
+    depends_on:
+      postgres-post:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-test}@postgres-post:5432/readme_blog
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_USER: ${RABBIT_USER:-admin}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD:-test}
+      RABBIT_QUEUE: readme.notification.income
+      RABBIT_EXCHANGE: readme.notification
+    networks:
+      - readme-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3002/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  notification-service:
+    image: readme.notification:latest
+    container_name: readme.notification.app
+    restart: always
+    depends_on:
+      mongo-notification:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      fakesmtp:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: 3004
+      MONGO_HOST: mongo-notification
+      MONGO_PORT: 27017
+      MONGO_DB: readme-notification
+      MONGO_USER: ${MONGO_USER:-admin}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:-test}
+      MONGO_AUTH_BASE: admin
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_USER: ${RABBIT_USER:-admin}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD:-test}
+      RABBIT_QUEUE: readme.notification.income
+      RABBIT_EXCHANGE: readme.notification
+      MAIL_SMTP_HOST: fakesmtp
+      MAIL_SMTP_PORT: 25
+      MAIL_USER_NAME: admin
+      MAIL_USER_PASSWORD: test
+      MAIL_FROM: noreply@readme.com
+    networks:
+      - readme-network
+
+  api-gateway:
+    image: readme.api-gateway:latest
+    container_name: readme.api-gateway
+    restart: always
+    depends_on:
+      user-service:
+        condition: service_healthy
+      post-service:
+        condition: service_healthy
+      file-storage-service:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # API Gateway service URLs
+      USERS_SERVICE_URL: http://user-service:3001/api/auth
+      SUBSCRIBE_SERVICE_URL: http://user-service:3001/api/subscribe
+      POSTS_SERVICE_URL: http://post-service:3002/api/posts
+      FILES_SERVICE_URL: http://file-storage-service:3003/api/files
+    ports:
+      - "3000:3000"  # Only gateway exposed to host
+    networks:
+      - readme-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  file-storage-service:
+    image: readme.file-storage:latest
+    container_name: readme.file-storage.app
+    restart: always
+    depends_on:
+      mongo-file-storage:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      MONGO_HOST: mongo-file-storage
+      MONGO_PORT: 27017
+      MONGO_DB: readme-file-storage
+      MONGO_USER: ${MONGO_USER:-admin}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:-test}
+      MONGO_AUTH_BASE: admin
+      UPLOAD_DIRECTORY_PATH: /opt/uploads
+    volumes:
+      - file_uploads:/opt/uploads
+    networks:
+      - readme-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3003/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# ============================================
+# NETWORKS
+# ============================================
+
+networks:
+  readme-network:
+    driver: bridge
+    name: readme-network
+
+# ============================================
+# VOLUMES
+# ============================================
+
+volumes:
+  rabbitmq_data:
+  mongo_user_data:
+  mongo_notification_data:
+  mongo_file_storage_data:
+  postgres_data:
+  file_uploads:

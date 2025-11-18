@@ -1,0 +1,60 @@
+{
+  "name": "notification",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/notification/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/webpack:webpack",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "target": "node",
+        "compiler": "tsc",
+        "outputPath": "dist/apps/notification",
+        "main": "apps/notification/src/main.ts",
+        "tsConfig": "apps/notification/tsconfig.app.json",
+        "assets": ["apps/notification/src/assets"],
+        "isolatedConfig": true,
+        "webpackConfig": "apps/notification/webpack.config.js",
+        "generatePackageJson": true
+      },
+      "configurations": {
+        "development": {},
+        "production": {}
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "notification:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "notification:build:development"
+        },
+        "production": {
+          "buildTarget": "notification:build:production"
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/notification/**/*.ts"]
+      }
+    },
+    "buildImage": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "npx nx run notification:build",
+          "docker build --file ./apps/notification/Dockerfile --tag readme.notification ."
+        ]
+      }
+    }
+  },
+  "tags": []
+}

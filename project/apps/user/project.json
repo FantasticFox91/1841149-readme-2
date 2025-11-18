@@ -1,0 +1,60 @@
+{
+  "name": "user",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/user/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/webpack:webpack",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "target": "node",
+        "compiler": "tsc",
+        "outputPath": "dist/apps/user",
+        "main": "apps/user/src/main.ts",
+        "tsConfig": "apps/user/tsconfig.app.json",
+        "assets": ["apps/user/src/assets"],
+        "isolatedConfig": true,
+        "webpackConfig": "apps/user/webpack.config.js",
+        "generatePackageJson": true
+      },
+      "configurations": {
+        "development": {},
+        "production": {}
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "user:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "user:build:development"
+        },
+        "production": {
+          "buildTarget": "user:build:production"
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/user/**/*.ts"]
+      }
+    },
+    "buildImage": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "npx nx run user:build",
+          "docker build --file ./apps/user/Dockerfile --tag readme.user ."
+        ]
+      }
+    }
+  },
+  "tags": []
+}

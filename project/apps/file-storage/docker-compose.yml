@@ -1,0 +1,6 @@
+services:
+  mongodb:
+    image: mongo:7
+
+  application:
+    image: readme.file-storage:latest

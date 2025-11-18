@@ -16,7 +16,8 @@
         "tsConfig": "apps/post/tsconfig.app.json",
         "assets": ["apps/post/src/assets"],
         "isolatedConfig": true,
-        "webpackConfig": "apps/post/webpack.config.js"
+        "webpackConfig": "apps/post/webpack.config.js",
+        "generatePackageJson": true
       },
       "configurations": {
         "development": {},
@@ -78,6 +79,15 @@
       "options": {
         "command": "npx ts-node ./libs/shared/post/models/prisma/seed.ts",
         "cwd": "."
+      }
+    },
+    "buildImage": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "npx nx run post:build",
+          "docker build --file ./apps/post/Dockerfile --tag readme.post ."
+        ]
       }
     }
   },

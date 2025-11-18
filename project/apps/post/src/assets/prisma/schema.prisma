@@ -1,0 +1,139 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output = "../../../../../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PostStatus {
+  published
+  draft
+}
+
+enum PostType {
+  video
+  text
+  quote
+  photo
+  link
+}
+
+model Post {
+  id               String     @id @default(uuid())
+  authorId         String     @map("author_id")
+  tags             Tag[]
+  status           PostStatus @default(published)
+  repost           Boolean    @default(false)
+  type             PostType
+  likes            Like[]
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  comments         Comment[]
+
+  originalAuthorId String?    @map("original_author_id")
+  originalPostId   String?    @map("original_post_id")
+  repostCreatedAt  DateTime?  @map("repost_created_at")
+  videoPost        VideoPost?
+  textPost         TextPost?
+  quotePost        QuotePost?
+  linkPost         LinkPost?
+  photoPost        PhotoPost?
+
+  @@map("posts")
+}
+
+model VideoPost {
+  id        String @id @default(uuid())
+  title     String
+  videoLink String @map("video_link")
+  post      Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String @unique @map("post_id")
+
+  @@map("video_posts")
+}
+
+model TextPost {
+  id       String @id @default(uuid())
+  title    String
+  announce String
+  text     String
+  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId   String @unique @map("post_id")
+
+  @@map("text_posts")
+}
+
+model QuotePost {
+  id          String @id @default(uuid())
+  quote       String
+  quoteAuthor String @map("quote_author")
+  post        Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId      String @unique @map("post_id")
+
+  @@map("quote_posts")
+}
+
+model PhotoPost {
+  id        String @id @default(uuid())
+  photoLink String @map("photo_link")
+  post      Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String @unique @map("post_id")
+
+  @@map("photo_posts")
+}
+
+model LinkPost {
+  id          String  @id @default(uuid())
+  link        String
+  description String? @map("description")
+  post        Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId      String  @unique @map("post_id")
+
+  @@map("link_posts")
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  title     String   @unique
+  posts     Post[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([title])
+  @@map("tags")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  text      String
+  authorId  String   @map("author_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String   @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([postId])
+  @@map("comments")
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String   @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@map("likes")
+}
