@@ -4,17 +4,14 @@
 # Usage:
 # Development: docker compose -f docker-compose.shared.yml up -d
 # With specific service: docker compose -f docker-compose.shared.yml -f apps/user/docker-compose.yml -f apps/user/docker-compose.dev.yml up -d
-
-version: "3.9"
-
 services:
   rabbitmq:
     image: rabbitmq:3.11-management-alpine
     container_name: readme.rabbitmq
     restart: "no"
     ports:
-      - "5672:5672"    # AMQP protocol port
-      - "15672:15672"  # Management UI
+      - "5672:5672" # AMQP protocol port
+      - "15672:15672" # Management UI
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: test
